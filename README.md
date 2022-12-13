@@ -34,7 +34,7 @@ This part shares the architecture of [deep-text-recognition-benchmark](https://g
 
 ## Installation
 
-First clone the repository then run the following commands
+First clone the repository then run the following commands. The code is tested on Python 3.8. 
 ```bash
 cd armenian-ocr
 pip3 install .

@@ -8,7 +8,6 @@ from collections import (
 import cv2
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import torch.backends.cudnn as cudnn
 

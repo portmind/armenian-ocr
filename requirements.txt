@@ -1,7 +1,5 @@
-opencv-python==3.4.8.29
+opencv-python==4.*
 torch==1.10.2
 torchvision==0.11.3
-pdf2image==1.5.4
 scipy==1.4.1
-matplotlib==3.5.1
-numpy
+numpy==1.*

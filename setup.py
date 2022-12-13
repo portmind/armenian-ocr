@@ -16,5 +16,5 @@ setuptools.setup(
         "armenian_ocr.detection.model.basenet",
     ],
     install_requires=packages_required,
-    python_requires=">=3.6.8",
+    python_requires=">=3.8",
 )
