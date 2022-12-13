@@ -7,10 +7,7 @@ from collections import (
 
 import cv2
 import torch
-import torch.onnx
 import numpy as np
-import pandas as pd
-import onnxruntime as ort
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import torch.backends.cudnn as cudnn

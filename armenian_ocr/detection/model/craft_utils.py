@@ -51,28 +51,6 @@ def find_cuts(arr: np.ndarray, div_coef_max: float = 1.5, div_coef_min: float = 
     return mask.astype("bool")
 
 
-# def get_breakpoints(values):
-#     try:
-#         for _ in range(2):
-#             values = savgol_filter(values, 7, 3)  # to make smoother
-#     except:
-#         print(len(values))
-#         raise
-#     directions = []
-#     for i, value1, value2 in zip(np.arange(len(values) - 1), values[:-1], values[1:]):
-#         if value1 >= value2:
-#             directions.append(True)
-#         else:
-#             directions.append(False)
-#     directions = np.array(directions)
-#     indices = np.where(directions)[0][::-1]
-#     peaks = []
-#     for index1, index2 in zip(indices[:-1], indices[1:]):
-#         if index1 != index2 + 1:
-#             peaks.append(index1)
-#     return peaks
-
-
 def get_breakpoints(zero_counts: np.ndarray, height_thresh: int = 3) -> list:
     """
     Get peaks of zero counts and return them as breakpoints
