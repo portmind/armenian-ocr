@@ -42,7 +42,7 @@ pip3 install .
 
 ## Usage
 
-To use the solution first download the model files from this [link](dummy_link) and uncompress the archive.
+To use the solution first download the model files from this [link](https://armenian-ocr-objects.s3.eu-west-3.amazonaws.com/objects.zip) and uncompress the archive.
 
 Once it is done you can import the package and use it in the following way.
 
