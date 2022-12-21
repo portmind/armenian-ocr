@@ -68,7 +68,7 @@ Or run the `ocr.py` script from the command line.
 python ocr.py \
  --detection_dir /path/to/objects/detection \
  --recognition_dir /path/to/objects/recognition \
- --image_path ./test_images/3.png \
+ --image_path /path/to/image \
  --output_path ./output.json
 ```
 
