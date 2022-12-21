@@ -48,8 +48,6 @@ class Model(nn.Module):
                 I_channel_num=opt.input_channel,
                 device=opt.device,
             )
-        else:
-            print("No Transformation module specified")
 
         """ FeatureExtraction """
         if opt.FeatureExtraction == "VGG":
