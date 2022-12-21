@@ -71,11 +71,7 @@ def resize_aspect_ratio(
     else:
         height, width = image.shape
         channel = 1
-    # magnify image size
-    # target_size = mag_ratio * max(height, width)
 
-    # set original image size
-    # if target_size > square_size:
     target_size = square_size
 
     ratio = target_size / max(height, width)

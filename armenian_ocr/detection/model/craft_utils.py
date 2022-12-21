@@ -1,10 +1,8 @@
 import math
 from collections import deque, OrderedDict
-from typing import List
 
 import cv2
 import numpy as np
-from numpy import ndarray
 from scipy.signal import find_peaks
 
 cv2.setNumThreads(0)

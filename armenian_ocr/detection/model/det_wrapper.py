@@ -1,14 +1,12 @@
 import os
 import json
-from collections import (
-    Counter,
-    defaultdict,
-)
+from typing import Union, List, Tuple
+from collections import defaultdict
+
 
 import cv2
 import torch
 import numpy as np
-from scipy.signal import find_peaks
 import torch.backends.cudnn as cudnn
 
 from armenian_ocr.detection.model import (
@@ -22,7 +20,7 @@ from armenian_ocr.detection.model.craft_utils import copy_state_dict
 class DetWrapper:
     def __init__(self):
         self.cuda = False
-        self.args = None
+        self.args = dict()
         self.model = CRAFT()
         self.device = None
 
@@ -57,7 +55,7 @@ class DetWrapper:
             self.args = json.load(json_file)
 
     @staticmethod
-    def postprocess_output(predictions: list) -> list:
+    def postprocess_output(predictions: List) -> List:
         """
         Postprocess predictions. The process includes:
         Find boxes with small heights and widths. If a box has both small height and width, it is considered very small,
@@ -188,7 +186,7 @@ class DetWrapper:
         low_text2: float = 0.6,
         return_heatmap: bool = False,
         postprocess: bool = True,
-    ):
+    ) -> Union[List[Tuple], Tuple[List[Tuple], np.ndarray]]:
 
         """
         Inference on CRAFT model.
@@ -210,7 +208,7 @@ class DetWrapper:
         Returns:
             Predicted bounded boxes of text, heatmap of region and affinity maps
         """
-        center = False if "center" not in self.args else self.args["center"]
+        center = self.args.get("center", False)
         # resize to model's input size
         image = image[..., ::-1]  # RGB -> BGR
         image_resized, target_ratio, size_heatmap = image_utils.resize_aspect_ratio(
@@ -270,7 +268,7 @@ class DetWrapper:
         return boxes
 
     @staticmethod
-    def hull2box(hull: np.ndarray) -> tuple:
+    def hull2box(hull: np.ndarray) -> Tuple:
         """
         Make a rectangle from hull
         Args:
@@ -285,7 +283,7 @@ class DetWrapper:
         return left, top, right, bottom
 
     @staticmethod
-    def draw_pred(image: np.ndarray, boxes: list) -> np.ndarray:
+    def draw_pred(image: np.ndarray, boxes: List) -> np.ndarray:
         """
         Draw predicted text boxes rectangles on image
         Args:

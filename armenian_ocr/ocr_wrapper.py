@@ -1,5 +1,7 @@
+from typing import List, Tuple
 from time import time
 
+import numpy as np
 from armenian_ocr import utils
 from armenian_ocr.detection.model.det_wrapper import DetWrapper
 from armenian_ocr.recognition.model.rec_wrapper import RecWrapper
@@ -18,7 +20,7 @@ class OcrWrapper:
         self.det_wrapper = DetWrapper()
         self.rec_wrapper = RecWrapper()
 
-    def load(self, det_model_dir, rec_model_dir, device="cpu"):
+    def load(self, det_model_dir: str, rec_model_dir: str, device: str = "cpu"):
         """
         Args:
             det_model_dir (str): A path to the directory of the detection model.
@@ -30,13 +32,13 @@ class OcrWrapper:
 
     def predict(
         self,
-        image,
-        link_threshold=0.3,
-        low_text=0.4,
-        link_threshold2=0.6,
-        low_text2=0.6,
-        timer=False,
-    ):
+        image: np.ndarray,
+        link_threshold: float = 0.3,
+        low_text: float = 0.4,
+        link_threshold2: float = 0.6,
+        low_text2: float = 0.6,
+        timer: bool = False,
+    ) -> List[Tuple]:
         """
         Args:
             image (np.array): An input image (RGB).
@@ -47,7 +49,6 @@ class OcrWrapper:
             timer: whether to print the execution times
         Returns:
             predictions (list): A list of tuples of the format ([x_min, y_min, x_max, y_max], text).
-            image (np.array): The rotated image.
         """
 
         det_start = time()
