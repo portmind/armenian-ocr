@@ -3,7 +3,9 @@
 
 ## About
 
-armenian-ocr is a package that contains an **Armenian Document OCR solution** that also supports *English* and *Russian* languages.
+armenian-ocr is a package that contains an **Armenian Document OCR solution** that also supports *Latin* and *Cyrillic* characters. The solution is designed to work with scanned documents. It supports documents with *different **layouts**, **densities** and **scan qualities***.
+This solution is currently used to OCR the documents of the [National Library of Armenia](https://nla.am/en/).
+The results are slightly better than the Google Cloud Vision OCR, and are shown in the table below.
 
 ## Test Dataset
 We have annotated 4 documents of different layouts and densities to assess the quality of our OCR and also to be able to compare with other OCR solutions.
@@ -32,7 +34,7 @@ This part shares the architecture of [deep-text-recognition-benchmark](https://g
 
 ## Installation
 
-First clone the repository then run the following commands
+First clone the repository then run the following commands. The code is tested on Python 3.8. 
 ```bash
 cd armenian-ocr
 pip3 install .
@@ -40,12 +42,14 @@ pip3 install .
 
 ## Usage
 
-To use the solution first download the model files from this [link](dummy_link) and uncompress the archive.
+To use the solution first download the model files from this [link](https://armenian-ocr-objects.s3.eu-west-3.amazonaws.com/objects.zip) and uncompress the archive.
 
-Once it is done you can import the package and use it like so.
+Once it is done you can import the package and use it in the following way.
 
 ```python
 from armenian_ocr import OcrWrapper
+from PIL import Image
+import numpy as np
 
 ocr = OcrWrapper()
 ocr.load(
@@ -54,7 +58,7 @@ ocr.load(
     device='cpu'
     )
 
-img = np.array('/path/to/image')
+img = np.array(Image.open('/path/to/image'))
 predictions = ocr.predict(img)
 ```
 
@@ -64,13 +68,13 @@ Or run the `ocr.py` script from the command line.
 python ocr.py \
  --detection_dir /path/to/objects/detection \
  --recognition_dir /path/to/objects/recognition \
- --image_path ./test_images/3.png \
+ --image_path /path/to/image \
  --output_path ./output.json
 ```
 
 
 
-If you have a Nvidia GPU you can use the `--cuda` flag to use it.
+If you have a Nvidia GPU you can use the `--cuda` flag to utilize it.
 
 This code will save the output in a list format, where each element is a list of the form `[bounding_box, word]`.
 
