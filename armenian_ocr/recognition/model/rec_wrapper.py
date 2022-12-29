@@ -22,7 +22,7 @@ class Opt(object):
         Args:
             path (str): path to opt.txt saved with the model
         """
-        with open(path, "r") as fp:
+        with open(path, "r", encoding="utf8") as fp:
             args = fp.readlines()
 
         for arg_i in args:
