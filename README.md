@@ -1,6 +1,10 @@
 
 # Armenian OCR
 
+![Python](https://img.shields.io/badge/Python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11-brightgreen)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+
 ## About
 
 armenian-ocr is a package that contains an **Armenian Document OCR solution** that also supports *Latin* and *Cyrillic* characters. The solution is designed to work with scanned documents. It supports documents with *different **layouts**, **densities** and **scan qualities***.
@@ -34,49 +38,32 @@ This part shares the architecture of [deep-text-recognition-benchmark](https://g
 
 ## Installation
 
-First clone the repository then run the following commands. The code is tested on Python 3.8. 
-```bash
-cd armenian-ocr
-pip3 install .
+We use poetry as a development manager.
+If you do not have a poetry installed, follow the instructions [here](https://python-poetry.org/docs/#installation)
+
+```shell
+$ poetry install
 ```
 
 ## Usage
 
-To use the solution first download the model files from this [link](https://armenian-ocr-objects.s3.eu-west-3.amazonaws.com/objects.zip) and uncompress the archive.
+1. Download model files from public S3 bucket, and uncompress the archive
 
-Once it is done you can import the package and use it in the following way.
-
-```python
-from armenian_ocr import OcrWrapper
-from PIL import Image
-import numpy as np
-
-ocr = OcrWrapper()
-ocr.load(
-    "/path/to/objects/detection",
-    "/path/to/objects/recognition",
-    device='cpu'
-    )
-
-img = np.array(Image.open('/path/to/image'))
-predictions = ocr.predict(img)
+```shell
+$ wget https://armenian-ocr-objects.s3.eu-west-3.amazonaws.com/objects.zip
+$ unzip objects.zip
 ```
-
-
-Or run the `ocr.py` script from the command line.
-```bash
-python ocr.py \
- --detection_dir /path/to/objects/detection \
- --recognition_dir /path/to/objects/recognition \
- --image_path /path/to/image \
- --output_path ./output.json
-```
-
-
-
-If you have a Nvidia GPU you can use the `--cuda` flag to utilize it.
-
+2. Run the provided `ocr.py` script.
+If you have an Nvidia GPU you can use the `--cuda` flag to utilize it.
 This code will save the output in a list format, where each element is a list of the form `[bounding_box, word]`.
+
+```shell
+$ poetry run python ocr.py \
+    --detection_dir /path/to/detection \
+    --recognition_dir /path/to/recognition \
+    --image_path ./test_images/1.png \
+    --output_path ./output.json
+```
 
 ## License
 
