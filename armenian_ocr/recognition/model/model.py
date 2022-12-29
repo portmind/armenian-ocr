@@ -16,16 +16,18 @@ limitations under the License.
 
 import torch.nn as nn
 
+from armenian_ocr.recognition.model.modules.feature_extraction import (
+    RCNN_FeatureExtractor,
+    ResNet_FeatureExtractor,
+    VGG_FeatureExtractor,
+)
+from armenian_ocr.recognition.model.modules.prediction import Attention
+from armenian_ocr.recognition.model.modules.sequence_modeling import (
+    BidirectionalLSTM,
+)
 from armenian_ocr.recognition.model.modules.transformation import (
     TPS_SpatialTransformerNetwork,
 )
-from armenian_ocr.recognition.model.modules.feature_extraction import (
-    VGG_FeatureExtractor,
-    RCNN_FeatureExtractor,
-    ResNet_FeatureExtractor,
-)
-from armenian_ocr.recognition.model.modules.sequence_modeling import BidirectionalLSTM
-from armenian_ocr.recognition.model.modules.prediction import Attention
 
 
 class Model(nn.Module):
@@ -51,14 +53,22 @@ class Model(nn.Module):
 
         """ FeatureExtraction """
         if opt.FeatureExtraction == "VGG":
-            self.FeatureExtraction = VGG_FeatureExtractor(opt.input_channel, opt.output_channel)
+            self.FeatureExtraction = VGG_FeatureExtractor(
+                opt.input_channel, opt.output_channel
+            )
         elif opt.FeatureExtraction == "RCNN":
-            self.FeatureExtraction = RCNN_FeatureExtractor(opt.input_channel, opt.output_channel)
+            self.FeatureExtraction = RCNN_FeatureExtractor(
+                opt.input_channel, opt.output_channel
+            )
         elif opt.FeatureExtraction == "ResNet":
-            self.FeatureExtraction = ResNet_FeatureExtractor(opt.input_channel, opt.output_channel)
+            self.FeatureExtraction = ResNet_FeatureExtractor(
+                opt.input_channel, opt.output_channel
+            )
         else:
             raise Exception("No FeatureExtraction module specified")
-        self.FeatureExtraction_output = opt.output_channel  # int(imgH/16-1) * 512
+        self.FeatureExtraction_output = (
+            opt.output_channel
+        )  # int(imgH/16-1) * 512
         # AdaptiveAvgPool not supported in onnx runtime, for 'current' cases imgH=32 or 64,
         self.AvgPool = nn.AvgPool2d((1, int(opt.imgH / 16 - 1)))
 
@@ -67,8 +77,14 @@ class Model(nn.Module):
         """ Sequence modeling"""
         if opt.SequenceModeling == "BiLSTM":
             self.SequenceModeling = nn.Sequential(
-                BidirectionalLSTM(self.FeatureExtraction_output, opt.hidden_size, opt.hidden_size),
-                BidirectionalLSTM(opt.hidden_size, opt.hidden_size, opt.hidden_size),
+                BidirectionalLSTM(
+                    self.FeatureExtraction_output,
+                    opt.hidden_size,
+                    opt.hidden_size,
+                ),
+                BidirectionalLSTM(
+                    opt.hidden_size, opt.hidden_size, opt.hidden_size
+                ),
                 # BidirectionalLSTM(opt.hidden_size, opt.hidden_size, opt.hidden_size),
                 # BidirectionalLSTM(opt.hidden_size, opt.hidden_size, opt.hidden_size),
                 # BidirectionalLSTM(opt.hidden_size, opt.hidden_size, opt.hidden_size),
@@ -80,7 +96,9 @@ class Model(nn.Module):
 
         """ Prediction """
         if opt.Prediction == "CTC":
-            self.Prediction = nn.Linear(self.SequenceModeling_output, opt.num_class)
+            self.Prediction = nn.Linear(
+                self.SequenceModeling_output, opt.num_class
+            )
         elif opt.Prediction == "Attn":
             self.Prediction = Attention(
                 self.SequenceModeling_output,
@@ -98,7 +116,9 @@ class Model(nn.Module):
 
         """ Feature extraction stage """
         visual_feature = self.FeatureExtraction(input)
-        visual_feature = visual_feature.permute(0, 3, 1, 2)  # [b, c, h, w] -> [b, w, c, h]
+        visual_feature = visual_feature.permute(
+            0, 3, 1, 2
+        )  # [b, c, h, w] -> [b, w, c, h]
 
         visual_feature = self.AvgPool(visual_feature)
 

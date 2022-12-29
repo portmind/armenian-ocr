@@ -22,8 +22,12 @@ def init_weights(modules):
 class vgg16_bn(torch.nn.Module):
     def __init__(self, pretrained=True, freeze=True):
         super(vgg16_bn, self).__init__()
-        model_urls["vgg16_bn"] = model_urls["vgg16_bn"].replace("https://", "http://")
-        vgg_pretrained_features = models.vgg16_bn(pretrained=pretrained).features
+        model_urls["vgg16_bn"] = model_urls["vgg16_bn"].replace(
+            "https://", "http://"
+        )
+        vgg_pretrained_features = models.vgg16_bn(
+            pretrained=pretrained
+        ).features
         self.slice1 = torch.nn.Sequential()
         self.slice2 = torch.nn.Sequential()
         self.slice3 = torch.nn.Sequential()
@@ -42,7 +46,7 @@ class vgg16_bn(torch.nn.Module):
         self.slice5 = torch.nn.Sequential(
             nn.MaxPool2d(kernel_size=3, stride=1, padding=1),
             nn.Conv2d(512, 1024, kernel_size=3, padding=6, dilation=6),
-            nn.Conv2d(1024, 1024, kernel_size=1)
+            nn.Conv2d(1024, 1024, kernel_size=1),
         )
 
         if not pretrained:
@@ -51,7 +55,9 @@ class vgg16_bn(torch.nn.Module):
             init_weights(self.slice3.modules())
             init_weights(self.slice4.modules())
 
-        init_weights(self.slice5.modules())  # no pretrained model for fc6 and fc7
+        init_weights(
+            self.slice5.modules()
+        )  # no pretrained model for fc6 and fc7
 
         if freeze:
             for param in self.slice1.parameters():  # only first conv

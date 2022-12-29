@@ -1,5 +1,5 @@
 import math
-from collections import deque, OrderedDict
+from collections import OrderedDict, deque
 
 import cv2
 import numpy as np
@@ -28,8 +28,10 @@ def copy_state_dict(state_dict):
     return new_state_dict
 
 
-def find_cuts(arr: np.ndarray, div_coef_max: float = 1.5, div_coef_min: float = 1.2) -> np.ndarray:
-    hist = np.sum(arr, axis=1).astype(np.int)
+def find_cuts(
+    arr: np.ndarray, div_coef_max: float = 1.5, div_coef_min: float = 1.2
+) -> np.ndarray:
+    hist = np.sum(arr, axis=1).astype(int)
     mask = np.zeros_like(hist)
     maxes = find_peaks(hist)[0]
     mines = find_peaks(-hist)[0]
@@ -42,8 +44,12 @@ def find_cuts(arr: np.ndarray, div_coef_max: float = 1.5, div_coef_min: float = 
         val_max = hist[idx] * div_coef_max
         val_min = hist[idx] * div_coef_min
 
-        if (val_max < hist[peaks[i - 1]] + 2) | (val_max < hist[peaks[i + 1]] + 2):
-            if (val_min < hist[peaks[i - 1]] + 2) & (val_min < hist[peaks[i + 1]] + 2):
+        if (val_max < hist[peaks[i - 1]] + 2) | (
+            val_max < hist[peaks[i + 1]] + 2
+        ):
+            if (val_min < hist[peaks[i - 1]] + 2) & (
+                val_min < hist[peaks[i + 1]] + 2
+            ):
                 mask[idx] = 1
 
     return mask.astype("bool")
@@ -70,7 +76,10 @@ def get_breakpoints(zero_counts: np.ndarray, height_thresh: int = 3) -> list:
             if len(peaks) + 1 != len(peaks_neg):
                 peaks_neg = np.concatenate((peaks_neg, peaks_neg[-1:]))
             for i in range(len(peaks)):
-                if zero_counts[peaks][i] > zero_counts[peaks_neg][i] + height_thresh:
+                if (
+                    zero_counts[peaks][i]
+                    > zero_counts[peaks_neg][i] + height_thresh
+                ):
                     real_peaks.append(peaks[i])
 
     return real_peaks
@@ -86,7 +95,9 @@ def get_labels(text_scores: np.ndarray, offset: int = 1) -> tuple:
     Returns:
         Number of labels, labels, stats, centroids
     """
-    n_labels, labels, _, _ = cv2.connectedComponentsWithStats(text_scores, connectivity=4)
+    n_labels, labels, _, _ = cv2.connectedComponentsWithStats(
+        text_scores, connectivity=4
+    )
     # refinement
     text_scores_refined = text_scores.copy()
     for i in range(1, n_labels + 1):
@@ -96,7 +107,9 @@ def get_labels(text_scores: np.ndarray, offset: int = 1) -> tuple:
         y_where = np.where((label_image != 0).sum(axis=1) > 0)[0]
 
         if (len(x_where) > 1) and (len(y_where) > 1):
-            label_bounded = label_image[y_where.min() : y_where.max(), x_where.min() : x_where.max()]
+            label_bounded = label_image[
+                y_where.min() : y_where.max(), x_where.min() : x_where.max()
+            ]
         else:
             continue
 
@@ -110,14 +123,23 @@ def get_labels(text_scores: np.ndarray, offset: int = 1) -> tuple:
         x, y = np.where(label_bounded > 0)
         for x_, y_ in zip(x, y):
             if x_ in to_be_zeroed:
-                if (abs(label_bounded.shape[0] - x_) <= offset) or (x_ <= offset):
+                if (abs(label_bounded.shape[0] - x_) <= offset) or (
+                    x_ <= offset
+                ):
                     # discard on boundaries
                     continue
-                if label_bounded[max(x_ - offset, 0) : x_ + offset + 1, y_].mean() < 255:
+                if (
+                    label_bounded[
+                        max(x_ - offset, 0) : x_ + offset + 1, y_
+                    ].mean()
+                    < 255
+                ):
                     # check if it has values both upper and below
                     continue
                 text_scores_refined[y_where.min() + x_, x_where.min() + y_] = 0
-    return cv2.connectedComponentsWithStats(text_scores_refined, connectivity=4)
+    return cv2.connectedComponentsWithStats(
+        text_scores_refined, connectivity=4
+    )
 
 
 def get_detection_boxes(
@@ -156,11 +178,15 @@ def get_detection_boxes(
     _, link_score = cv2.threshold(link_map, link_threshold, 1, 0)
 
     # add the maps and run connected components
-    text_score_combined = np.clip(text_score + link_score, 0, 1).astype(np.uint8)
+    text_score_combined = np.clip(text_score + link_score, 0, 1).astype(
+        np.uint8
+    )
     if improve_steps > 0:
         n_labels, labels, stats, _ = get_labels(text_score_combined)
     else:
-        n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(text_score_combined, connectivity=4)
+        n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+            text_score_combined, connectivity=4
+        )
     labels = labels.astype(np.uint64)
 
     # threshold by hard thresholds
@@ -168,11 +194,15 @@ def get_detection_boxes(
     _, link_score_hard = cv2.threshold(link_map, link_threshold2, 1, 0)
 
     # add the maps and run connected components
-    text_score_hard_combined = np.clip(text_score_hard + link_score_hard, 0, 1).astype(np.uint8)
+    text_score_hard_combined = np.clip(
+        text_score_hard + link_score_hard, 0, 1
+    ).astype(np.uint8)
     if improve_steps > 0:
         _, labels_hard, stats_hard, _ = get_labels(text_score_hard_combined)
     else:
-        _, labels_hard, stats_hard, _ = cv2.connectedComponentsWithStats(text_score_hard_combined, connectivity=4)
+        _, labels_hard, stats_hard, _ = cv2.connectedComponentsWithStats(
+            text_score_hard_combined, connectivity=4
+        )
 
     numer = np.arange(0, len(stats_hard)).reshape((len(stats_hard), 1))
     stats_hard = np.concatenate((stats_hard, numer), axis=1)
@@ -199,7 +229,12 @@ def get_detection_boxes(
             segmentation_map[(labels == label_id) & (text_score == 1)] = 1
             cuts = find_cuts(segmentation_map[y : y + height, x : x + width])
             segmentation_map[y : y + height, x : x + width][cuts] = 0
-            n_labels_current, sub_labels, sub_stats, _ = cv2.connectedComponentsWithStats(
+            (
+                n_labels_current,
+                sub_labels,
+                sub_stats,
+                _,
+            ) = cv2.connectedComponentsWithStats(
                 segmentation_map[y : y + height, x : x + width], connectivity=4
             )
             if n_labels_current > 2:
@@ -208,7 +243,9 @@ def get_detection_boxes(
                 for i in range(1, n_labels_current):
                     new_label_id = max_id
                     max_id += 1
-                    labels[y : y + height, x : x + width][sub_labels == i] = new_label_id
+                    labels[y : y + height, x : x + width][
+                        sub_labels == i
+                    ] = new_label_id
                     labels_deq.append(new_label_id)
                     stats_deq.append(sub_stats[i].tolist())
                 continue
@@ -217,9 +254,9 @@ def get_detection_boxes(
             # is small box's top left smaller then targets
             top_left_in = (stats_hard[:, 0] >= x) & (stats_hard[:, 1] >= y)
             # is small box's bot right bigger then targets
-            bottom_right_in = (stats_hard[:, 0] + stats_hard[:, 2] <= x + width) & (
-                stats_hard[:, 1] + stats_hard[:, 3] <= y + height
-            )
+            bottom_right_in = (
+                stats_hard[:, 0] + stats_hard[:, 2] <= x + width
+            ) & (stats_hard[:, 1] + stats_hard[:, 3] <= y + height)
             small_boxes = stats_hard[top_left_in & bottom_right_in]
             for box in small_boxes:
                 label_i = box[5]
@@ -246,7 +283,10 @@ def get_detection_boxes(
             num_iter_coef = 1
             num_iter_offset = 2
 
-        num_iter = int(math.sqrt(size * min(width, height) / (width * height)) * num_iter_coef)
+        num_iter = int(
+            math.sqrt(size * min(width, height) / (width * height))
+            * num_iter_coef
+        )
         x_left, x_right, y_top, y_bottom = (
             x - num_iter,
             x + width + num_iter + 1,
@@ -263,13 +303,19 @@ def get_detection_boxes(
         if y_bottom >= image_height:
             y_bottom = image_height
 
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1 + num_iter, 1 + num_iter + num_iter_offset))
+        kernel = cv2.getStructuringElement(
+            cv2.MORPH_RECT, (1 + num_iter, 1 + num_iter + num_iter_offset)
+        )
         segmentation_map[y_top:y_bottom, x_left:x_right] = cv2.dilate(
             segmentation_map[y_top:y_bottom, x_left:x_right], kernel
         )
 
         # make box
-        np_contours = np.roll(np.array(np.where(segmentation_map != 0)), 1, axis=0).transpose().reshape(-1, 2)
+        np_contours = (
+            np.roll(np.array(np.where(segmentation_map != 0)), 1, axis=0)
+            .transpose()
+            .reshape(-1, 2)
+        )
         # rectangle = cv2.minAreaRect(np_contours)
         # box = cv2.boxPoints(rectangle)
 
@@ -277,8 +323,11 @@ def get_detection_boxes(
         try:
             left, right = min(np_contours[:, 0]), max(np_contours[:, 0])
             top, bottom = min(np_contours[:, 1]), max(np_contours[:, 1])
-            box = np.array([[left, top], [right, top], [right, bottom], [left, bottom]], dtype=np.float32)
-        except:
+            box = np.array(
+                [[left, top], [right, top], [right, bottom], [left, bottom]],
+                dtype=np.float32,
+            )
+        except BaseException:
             print("dumped", label_id)
             # print(Counter(labels.flatten()))
             print("__", (labels == label_id).sum())
@@ -318,7 +367,10 @@ def adjust_result_coordinates(
         polygons = np.array(polygons, dtype=object)
         for index in range(len(polygons)):
             if polygons[index] is not None:
-                polygons[index] = polygons[index] * (ratio_width * ratio_net, ratio_height * ratio_net)
+                polygons[index] = polygons[index] * (
+                    ratio_width * ratio_net,
+                    ratio_height * ratio_net,
+                )
                 polygons[index] = polygons[index].astype(int)
     return polygons
 
@@ -334,4 +386,9 @@ def remove_padding(box: tuple, upper_padding: int, left_padding: int) -> tuple:
     Returns:
         Corrected box
     """
-    return box[0] - left_padding, box[1] - upper_padding, box[2] - left_padding, box[3] - upper_padding
+    return (
+        box[0] - left_padding,
+        box[1] - upper_padding,
+        box[2] - left_padding,
+        box[3] - upper_padding,
+    )
