@@ -1,8 +1,8 @@
 import math
-from PIL import Image
 
 import torch
 import torchvision.transforms as transforms
+from PIL import Image
 
 
 class CTCLabelConverter(object):
@@ -22,7 +22,9 @@ class CTCLabelConverter(object):
             # NOTE: 0 is reserved for 'blank' token required by CTCLoss
             self.dict[char] = i + 1
 
-        self.character = ["[blank]"] + dict_character  # dummy '[blank]' token for CTCLoss (index 0)
+        self.character = [
+            "[blank]"
+        ] + dict_character  # dummy '[blank]' token for CTCLoss (index 0)
 
     def encode(self, text, batch_max_length=25):
         """convert text-label into text-index.
@@ -38,18 +40,22 @@ class CTCLabelConverter(object):
         text = "".join(text)
         text = [self.dict[char] for char in text]
 
-        return torch.IntTensor(text).to(self.device), torch.IntTensor(length).to(self.device)
+        return torch.IntTensor(text).to(self.device), torch.IntTensor(
+            length
+        ).to(self.device)
 
     def decode(self, text_index, length):
         """convert text-index into text-label."""
         texts = []
         index = 0
-        for l in length:
+        for l in length:  # noqa: E741
             t = text_index[index : index + l]
 
             char_list = []
             for i in range(l):
-                if t[i] != 0 and (not (i > 0 and t[i - 1] == t[i])):  # removing repeated characters and blank.
+                if t[i] != 0 and (
+                    not (i > 0 and t[i - 1] == t[i])
+                ):  # removing repeated characters and blank.
                     char_list.append(self.character[t[i]])
             text = "".join(char_list)
 
@@ -98,8 +104,12 @@ class AttnLabelConverter(object):
             text = list(t)
             text.append("[s]")
             text = [self.dict[char] for char in text]
-            batch_text[i][1 : 1 + len(text)] = torch.LongTensor(text)  # batch_text[:, 0] = [GO] token
-        return batch_text.to(self.device), torch.IntTensor(length).to(self.device)
+            batch_text[i][1 : 1 + len(text)] = torch.LongTensor(
+                text
+            )  # batch_text[:, 0] = [GO] token
+        return batch_text.to(self.device), torch.IntTensor(length).to(
+            self.device
+        )
 
     def decode(self, text_index, length):
         """convert text-index into text-label."""
@@ -162,13 +172,19 @@ class NormalizePAD(object):
         Pad_img[:, :, :w] = img  # right pad
         Pad_img[:, :, :w] = img  # right pad
         if self.max_size[2] != w:  # add border Pad
-            Pad_img[:, :, w:] = img[:, :, w - 1].unsqueeze(2).expand(c, h, self.max_size[2] - w)
+            Pad_img[:, :, w:] = (
+                img[:, :, w - 1]
+                .unsqueeze(2)
+                .expand(c, h, self.max_size[2] - w)
+            )
 
         return Pad_img
 
 
 class AlignCollate(object):
-    def __init__(self, imgH=32, imgW=100, keep_ratio_with_pad=False, aug_func=None):
+    def __init__(
+        self, imgH=32, imgW=100, keep_ratio_with_pad=False, aug_func=None
+    ):
         self.imgH = imgH
         self.imgW = imgW
         self.keep_ratio_with_pad = keep_ratio_with_pad
@@ -193,15 +209,21 @@ class AlignCollate(object):
                 else:
                     resized_w = math.ceil(self.imgH * ratio)
 
-                resized_image = image.resize((resized_w, self.imgH), Image.BICUBIC)
+                resized_image = image.resize(
+                    (resized_w, self.imgH), Image.BICUBIC
+                )
                 resized_images.append(transform(resized_image))
                 # resized_image.save('./image_test/%d_test.jpg' % w)
 
-            image_tensors = torch.cat([t.unsqueeze(0) for t in resized_images], 0)
+            image_tensors = torch.cat(
+                [t.unsqueeze(0) for t in resized_images], 0
+            )
 
         else:
             transform = ResizeNormalize((self.imgW, self.imgH))
             image_tensors = [transform(image) for image in images]
-            image_tensors = torch.cat([t.unsqueeze(0) for t in image_tensors], 0)
+            image_tensors = torch.cat(
+                [t.unsqueeze(0) for t in image_tensors], 0
+            )
 
         return image_tensors, labels

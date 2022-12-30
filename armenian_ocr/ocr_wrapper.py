@@ -1,7 +1,8 @@
-from typing import List, Tuple
 from time import time
+from typing import List, Tuple
 
 import numpy as np
+
 from armenian_ocr import utils
 from armenian_ocr.detection.model.det_wrapper import DetWrapper
 from armenian_ocr.recognition.model.rec_wrapper import RecWrapper
@@ -20,7 +21,9 @@ class OcrWrapper:
         self.det_wrapper = DetWrapper()
         self.rec_wrapper = RecWrapper()
 
-    def load(self, det_model_dir: str, rec_model_dir: str, device: str = "cpu"):
+    def load(
+        self, det_model_dir: str, rec_model_dir: str, device: str = "cpu"
+    ):
         """
         Args:
             det_model_dir (str): A path to the directory of the detection model.
@@ -63,7 +66,9 @@ class OcrWrapper:
         if timer:
             print(f"detection took {time() - det_start} seconds")
         image_grayscale = utils.grayscale(image)
-        images = [image_grayscale[box[1] : box[3], box[0] : box[2]] for box in boxes]
+        images = [
+            image_grayscale[box[1] : box[3], box[0] : box[2]] for box in boxes
+        ]
         rec_start = time()
         texts = self.rec_wrapper.predict(images)
         if timer:

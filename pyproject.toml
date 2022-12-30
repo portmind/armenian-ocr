@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "armenian-ocr"
+version = "0.1.0"
+description = "OCR implementation for Armenian documents"
+authors = ["Portmind's Team"]
+maintainers = [
+    "Khachatur Khechoyan <khachatur.khechoyan@portmind.com>",
+    "Sevak Harutyunyan <sevak.harutyunyan@portmind.com>",
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+torch = "^1.13.1"
+numpy = "^1.24.1"
+scipy = "^1.9.3"
+torchvision = "^0.14.1"
+opencv-python = "^4.6.0"
+
+[tool.poetry.dev-dependencies]
+pre-commit = "^2.21.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
