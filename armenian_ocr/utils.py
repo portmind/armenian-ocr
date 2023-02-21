@@ -1,15 +1,17 @@
 import cv2
+import numpy as np
 
 
-def grayscale(image):
-    """
+def grayscale(image: np.ndarray) -> np.ndarray:
+    """Make image grayscale
+
     Args:
-        image (np.array): An input image.
+        image: Input image.
     Returns:
-        img_gs (np.array): The grayscale version of the image.
+        Grayscale image
     """
     if len(image.shape) == 3:
-        img_gs = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     else:
-        img_gs = image.copy()
-    return img_gs
+        grayscale_image = image.copy()
+    return grayscale_image
