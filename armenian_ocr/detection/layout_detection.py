@@ -13,7 +13,7 @@ from scipy.signal import find_peaks
 
 def moving_average(values: np.ndarray, window_size: int) -> np.ndarray:
     """Calculate moving average values
-    
+
     Args:
         values: Input values
         window_size: Window size
@@ -24,7 +24,9 @@ def moving_average(values: np.ndarray, window_size: int) -> np.ndarray:
     return np.convolve(values, np.ones(window_size), "same") / window_size
 
 
-def get_horizontal_breakpoints(image_1d: np.ndarray, window_size: int = 10) -> List[int]:
+def get_horizontal_breakpoints(
+    image_1d: np.ndarray, window_size: int = 10
+) -> List[int]:
     """Find horizontal breakpoints using detected boxes.
 
     Args:
@@ -35,9 +37,12 @@ def get_horizontal_breakpoints(image_1d: np.ndarray, window_size: int = 10) -> L
     Returns:
         Horizontal breakpoints
     """
-    horizontal_whites = np.where(moving_average((image_1d != 255).sum(axis=1), window_size).astype(int) == 0)[0]
+    horizontal_whites = np.where(
+        moving_average((image_1d != 255).sum(axis=1), window_size).astype(int)
+        == 0
+    )[0]
     y_breakpoints, window = [], []
-    
+
     for index in horizontal_whites:
         if len(window) == 0:
             window.append(index)
@@ -54,7 +59,9 @@ def get_horizontal_breakpoints(image_1d: np.ndarray, window_size: int = 10) -> L
     return y_breakpoints
 
 
-def get_vertical_breakpoints(image_1d: np.ndarray, divisor: int = 4, window_size: int = 100) -> np.ndarray:
+def get_vertical_breakpoints(
+    image_1d: np.ndarray, divisor: int = 4, window_size: int = 100
+) -> np.ndarray:
     """Find vertical breakpoints using detected boxes
 
     Args:
@@ -68,14 +75,18 @@ def get_vertical_breakpoints(image_1d: np.ndarray, divisor: int = 4, window_size
         Vertical breakpoints
     """
     values = (image_1d != 255).sum(axis=0)
-    moving_averages = moving_average(values=values, window_size=window_size)  # to make smoother
-    breakpoints = find_peaks(-moving_averages, prominence=image_1d.shape[0] // divisor)[0]
+    moving_averages = moving_average(
+        values=values, window_size=window_size
+    )  # to make smoother
+    breakpoints = find_peaks(
+        -moving_averages, prominence=image_1d.shape[0] // divisor
+    )[0]
     return breakpoints
 
 
 def unify_rows(df: pd.DataFrame) -> pd.DataFrame:
     """Assign "row_id"s to predicted words
-    
+
     Args:
         df: Dataframe from make_df
 
@@ -91,7 +102,9 @@ def unify_rows(df: pd.DataFrame) -> pd.DataFrame:
     prev = df.iloc[0]
     for i in range(1, len(df)):
         next_ = df.iloc[i]
-        if (prev["y1"] <= next_["y_mean"] <= prev["y2"]) and (next_["y1"] <= prev["y_mean"] <= next_["y2"]):
+        if (prev["y1"] <= next_["y_mean"] <= prev["y2"]) and (
+            next_["y1"] <= prev["y_mean"] <= next_["y2"]
+        ):
             # if the y coordinate is close to prev, change its coordinate to prev
             pass
         else:
@@ -100,11 +113,13 @@ def unify_rows(df: pd.DataFrame) -> pd.DataFrame:
         row_ids.append(row_id)
         prev = next_
     df["row_id"] = row_ids
-    
+
     return df
 
 
-def unify_paragraphs(detections: pd.DataFrame, group_by: str = "paragraph_id") -> pd.DataFrame:
+def unify_paragraphs(
+    detections: pd.DataFrame, group_by: str = "paragraph_id"
+) -> pd.DataFrame:
     """Joins overlapping paragraphs and assigns "row_id"s to each paragraph
 
     Args:
@@ -117,28 +132,40 @@ def unify_paragraphs(detections: pd.DataFrame, group_by: str = "paragraph_id") -
     min_values = detections.groupby(group_by)[["x1", "y1"]].min()
     max_values = detections.groupby(group_by)[["x2", "y2"]].max()
 
-    group_coordinates_items = list(pd.concat((min_values, max_values), axis=1).iterrows())
-    group_mapping = {group_id: group_id for group_id in detections[group_by].unique()}
+    group_coordinates_items = list(
+        pd.concat((min_values, max_values), axis=1).iterrows()
+    )
+    group_mapping = {
+        group_id: group_id for group_id in detections[group_by].unique()
+    }
 
     median_box_width = np.median(detections["x2"] - detections["x1"])
     median_box_height = np.median(detections["y2"] - detections["y1"])
 
     for group_id1, coordinates1 in group_coordinates_items:
         for group_id2, coordinates2 in group_coordinates_items:
-            if group_id1 >= group_id2:  # for joining the lower index is considered as parent
+            if (
+                group_id1 >= group_id2
+            ):  # for joining the lower index is considered as parent
                 continue
-        
+
             x_intersection = min(coordinates1["x2"], coordinates2["x2"]) - max(
                 coordinates1["x1"], coordinates2["x1"]
             )
             y_intersection = min(coordinates1["y2"], coordinates2["y2"]) - max(
                 coordinates1["y1"], coordinates2["y1"]
             )
-        
-            if x_intersection > median_box_width and y_intersection > median_box_height:
+
+            if (
+                x_intersection > median_box_width
+                and y_intersection > median_box_height
+            ):
                 group_mapping[group_id2] = group_id1
 
-    for child, parent in group_mapping.items():  # find parent index and join only to it
+    for (
+        child,
+        parent,
+    ) in group_mapping.items():  # find parent index and join only to it
         while parent != group_mapping[parent]:
             parent = group_mapping[parent]
             group_mapping[child] = parent
@@ -151,23 +178,29 @@ def unify_paragraphs(detections: pd.DataFrame, group_by: str = "paragraph_id") -
         group_df = detections[group_mask].copy()
         group_df = unify_rows(group_df)
         detections.loc[group_mask] = group_df
-    detections["row_id"] = detections[group_by].astype(str) + "_" + detections["row_id"].astype(str)
+    detections["row_id"] = (
+        detections[group_by].astype(str)
+        + "_"
+        + detections["row_id"].astype(str)
+    )
     detections = detections[["x1", "y1", "x2", "y2", "row_id", group_by]]
     return detections
 
 
 def improve_row_grouping(detections: pd.DataFrame) -> pd.DataFrame:
     """Split row groups that are likely to contain more than one row (heuristic based)
-    
+
     Args:
         detections: Detections dataframe that should contain "row_id" column
-        
+
     Returns:
         Detections with updated "row_id" column
     """
     median_height = (detections["y2"] - detections["y1"]).median()
     threshold_width = np.percentile(detections["x2"] - detections["x1"], 5)
-    group_heights = detections.groupby("row_id").apply(lambda x: x["y2"].max() - x["y1"].min())
+    group_heights = detections.groupby("row_id").apply(
+        lambda x: x["y2"].max() - x["y1"].min()
+    )
     big_groups = set(group_heights[group_heights > 1.4 * median_height].index)
 
     for group in big_groups:
@@ -178,11 +211,21 @@ def improve_row_grouping(detections: pd.DataFrame) -> pd.DataFrame:
 
         num_rows = []
         for x_coord in range(group_df["x1"].min(), group_df["x2"].max()):
-            num_rows.append(((x_coord >= group_df["x1"]) & (x_coord <= group_df["x2"])).sum())
+            num_rows.append(
+                (
+                    (x_coord >= group_df["x1"]) & (x_coord <= group_df["x2"])
+                ).sum()
+            )
 
-        thresholded_counts = [i for i in sorted(Counter(num_rows).items(), reverse=True) if i[1] > threshold_width]
+        thresholded_counts = [
+            i
+            for i in sorted(Counter(num_rows).items(), reverse=True)
+            if i[1] > threshold_width
+        ]
         if len(thresholded_counts) == 0:
-            print("Issue in improve_row_grouping, len(thresholded_counts) == 0, to be fixed")
+            print(
+                "Issue in improve_row_grouping, len(thresholded_counts) == 0, to be fixed"
+            )
             continue
         max_row_count = thresholded_counts[0][0]
 
@@ -190,12 +233,16 @@ def improve_row_grouping(detections: pd.DataFrame) -> pd.DataFrame:
             continue
         else:
             group_df["y_mean"] = (group_df["y1"] + group_df["y2"]) / 2
-            threshold_height = (group_df["y2"].max() - group_df["y1"].min()) / max_row_count
+            threshold_height = (
+                group_df["y2"].max() - group_df["y1"].min()
+            ) / max_row_count
             threshold_min = group_df["y1"].min()
             group_suffix = 0
             while threshold_min < group_df["y2"].max():
                 threshold_max = threshold_min + threshold_height
-                threshold_mask = (group_df["y_mean"] > threshold_min) & (group_df["y_mean"] <= threshold_max)
+                threshold_mask = (group_df["y_mean"] > threshold_min) & (
+                    group_df["y_mean"] <= threshold_max
+                )
                 group_df.loc[threshold_mask, "row_id"] = (
                     group_df["row_id"][threshold_mask] + f"_{group_suffix}"
                 )
@@ -231,39 +278,65 @@ def detect_layout(
     Returns:
         Detections dataframe with two new columns: "paragraph_id" and "row_id"
     """
-    detected_boxes = np.full(shape=image_shape[:2], fill_value=255, dtype=np.uint8)  # Create an empty image for
+    detected_boxes = np.full(
+        shape=image_shape[:2], fill_value=255, dtype=np.uint8
+    )  # Create an empty image for
     # putting predicted detection boxes atop. The image will be used for layout detection.
     for x1, y1, x2, y2 in detections[["x1", "y1", "x2", "y2"]].values:
-        detected_boxes[y1:y2, x1:x2] = 0  # fill all the pixels of detected boxes with 0s
-    
+        detected_boxes[
+            y1:y2, x1:x2
+        ] = 0  # fill all the pixels of detected boxes with 0s
+
     detections["y_mean"] = (detections["y1"] + detections["y2"]) / 2
     detections["x_mean"] = (detections["x1"] + detections["x2"]) / 2
-    
+
     group_by = "y_mean"
     paragraph_name = "paragraph_id"
     detections[paragraph_name] = -1  # initialize paragraph ID with -1
     paragraph_id = 0
-    
+
     height_median = (detections["y2"] - detections["y1"]).median()
-    horizontal_breakpoints = \
-        [0] + get_horizontal_breakpoints(image_1d=detected_boxes, window_size=int(height_median / 2)) + \
-        [image_shape[0]]
-    
-    for y_min, y_max in zip(horizontal_breakpoints[:-1], horizontal_breakpoints[1:]):
+    horizontal_breakpoints = (
+        [0]
+        + get_horizontal_breakpoints(
+            image_1d=detected_boxes, window_size=int(height_median / 2)
+        )
+        + [image_shape[0]]
+    )
+
+    for y_min, y_max in zip(
+        horizontal_breakpoints[:-1], horizontal_breakpoints[1:]
+    ):
         paragraph_ids = []
         if y_max - y_min < median_multiplier * height_median:
             # This region is not big enough to be divided vertically
             # So all detections in this region are assigned to the same paragraph
-            group_mask = (detections["y_mean"] > y_min) & (detections["y_mean"] <= y_max)
+            group_mask = (detections["y_mean"] > y_min) & (
+                detections["y_mean"] <= y_max
+            )
             detections.loc[group_mask, paragraph_name] = paragraph_id
             paragraph_id += 1
         else:
-            vertical_breakpoints = \
-                [0] + list(get_vertical_breakpoints(image_1d=detected_boxes[y_min:y_max], divisor=divisor,
-                                                    window_size=window_size)) + [image_shape[1] + 1]
-            for x_min, x_max in zip(vertical_breakpoints[:-1], vertical_breakpoints[1:]):
-                x_mask = (detections["x_mean"] > x_min) & (detections["x_mean"] <= x_max)
-                y_mask = (detections["y_mean"] > y_min) & (detections["y_mean"] <= y_max)
+            vertical_breakpoints = (
+                [0]
+                + list(
+                    get_vertical_breakpoints(
+                        image_1d=detected_boxes[y_min:y_max],
+                        divisor=divisor,
+                        window_size=window_size,
+                    )
+                )
+                + [image_shape[1] + 1]
+            )
+            for x_min, x_max in zip(
+                vertical_breakpoints[:-1], vertical_breakpoints[1:]
+            ):
+                x_mask = (detections["x_mean"] > x_min) & (
+                    detections["x_mean"] <= x_max
+                )
+                y_mask = (detections["y_mean"] > y_min) & (
+                    detections["y_mean"] <= y_max
+                )
                 group_mask = x_mask & y_mask
                 group_df = detections[group_mask].copy()
                 group_by_values = sorted(group_df[group_by].unique())
@@ -273,21 +346,28 @@ def detect_layout(
                 for value in group_by_values:
                     if abs(value - prev_value) > 1.5 * height_median:
                         # if there is a larger space that 1.5 row then assign the word a new paragraph ID
-                        
-                        group_df.loc[group_df[group_by].isin(paragraph_ids), paragraph_name] = paragraph_id
+
+                        group_df.loc[
+                            group_df[group_by].isin(paragraph_ids),
+                            paragraph_name,
+                        ] = paragraph_id
                         paragraph_ids = [value]
                         paragraph_id += 1
                     else:
                         # otherwise assign it to the previous paragraph ID
                         paragraph_ids.append(value)
                     prev_value = value
-                group_df.loc[group_df[group_by].isin(paragraph_ids), paragraph_name] = paragraph_id
+                group_df.loc[
+                    group_df[group_by].isin(paragraph_ids), paragraph_name
+                ] = paragraph_id
                 paragraph_id += 1
                 detections.loc[group_mask, :] = group_df
-    
+
     # join overlapping paragraphs
-    detections = unify_paragraphs(detections=detections, group_by=paragraph_name)
-    
+    detections = unify_paragraphs(
+        detections=detections, group_by=paragraph_name
+    )
+
     # split row groups that are likely to contain more than one row
     detections = improve_row_grouping(detections)
     return detections.sort_index()
