@@ -247,7 +247,7 @@ class DetWrapper:
         image = image[..., ::-1]  # RGB -> BGR
         image_resized, target_ratio = image_utils.resize_aspect_ratio(
             image=image,
-            square_size=self.args["canvas_size"],
+            square_size=self.args.get("canvas_size", 1280),
             interpolation=cv2.INTER_AREA,
             center=center,
         )
@@ -270,10 +270,10 @@ class DetWrapper:
         boxes = craft_utils.get_detection_boxes(
             text_map=score_text,
             link_map=score_link,
-            soft_link_threshold=self.args["soft_link_threshold"],
-            soft_text_threshold=self.args["soft_text_threshold"],
-            hard_link_threshold=self.args["hard_link_threshold"],
-            hard_text_threshold=self.args["hard_text_threshold"],
+            soft_link_threshold=self.args.get("soft_link_threshold", 0.4),
+            soft_text_threshold=self.args.get("soft_text_threshold", 0.3),
+            hard_link_threshold=self.args.get("hard_link_threshold", 0.6),
+            hard_text_threshold=self.args.get("hard_text_threshold", 0.6),
         )
 
         # coordinate adjustment to original image size
