@@ -47,9 +47,21 @@ if __name__ == "__main__":
         device=device,
     )
 
-    image = np.array(Image.open(args.image_path))
+    pil_image = Image.open(args.image_path)
+    np_image = np.array(pil_image)
+
+    if np_image.shape[-1] == 4:  # handle images with alpha channel
+        pil_image.load()
+        blended_image = Image.new(
+            mode="RGB", size=pil_image.size, color=(255, 255, 255)
+        )
+        blended_image.paste(
+            im=pil_image, mask=pil_image.split()[3]
+        )  # blend alpha channel
+        np_image = np.array(blended_image)
+
     predictions = ocr.predict(
-        image=image, predict_layout=args.layout, timer=args.timer
+        image=np_image, predict_layout=args.layout, timer=args.timer
     )
 
     with open(args.output_path, "w", encoding="utf-8") as fp:
