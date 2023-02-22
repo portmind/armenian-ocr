@@ -60,8 +60,6 @@ if __name__ == "__main__":
         pil_images = convert_from_path(args.document_path)
         np_images = [np.array(pil_image) for pil_image in pil_images]
     elif document_extension in ["png", "jpg", "jpeg"]:
-        pil_images = convert_from_path(args.document_path)
-        np_images = [np.array(pil_image) for pil_image in pil_images]
         pil_image = Image.open(args.document_path)
         np_image = np.array(pil_image)
 
