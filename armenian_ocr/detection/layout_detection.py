@@ -203,31 +203,40 @@ def improve_row_grouping(detections: pd.DataFrame) -> pd.DataFrame:
     )
     big_groups = set(group_heights[group_heights > 1.4 * median_height].index)
 
+    num_stripes = 30  # the bigger this number the better (but slower) the rows will be split
+
     for group in big_groups:
         group_mask = detections["row_id"] == group
         group_df = detections[group_mask].copy()
+        group_width = group_df["x2"].max() - group_df["x1"].min()
+        count_threshold = (
+            num_stripes * threshold_width / group_width
+        )  # find coverage threshold
         if len(group_df) <= 1:
             continue
 
-        num_rows = []
-        for x_coord in range(group_df["x1"].min(), group_df["x2"].max()):
-            num_rows.append(
+        candidate_num_rows = []
+        for x_coord in np.linspace(
+            group_df["x1"].min(), group_df["x2"].max(), num_stripes
+        ):
+            candidate_num_rows.append(
                 (
                     (x_coord >= group_df["x1"]) & (x_coord <= group_df["x2"])
                 ).sum()
             )
 
-        thresholded_counts = [
-            i
-            for i in sorted(Counter(num_rows).items(), reverse=True)
-            if i[1] > threshold_width
-        ]
-        if len(thresholded_counts) == 0:
-            print(
-                "Issue in improve_row_grouping, len(thresholded_counts) == 0, to be fixed"
+        thresholded_candidates = [
+            num_rows
+            for num_rows, count in sorted(
+                Counter(candidate_num_rows).items(), reverse=True
             )
+            if count > count_threshold
+        ]  # get the biggest number which has enough coverage
+
+        if len(thresholded_candidates) == 0:
             continue
-        max_row_count = thresholded_counts[0][0]
+
+        max_row_count = thresholded_candidates[0]
 
         if max_row_count == 1:
             continue
@@ -370,4 +379,5 @@ def detect_layout(
 
     # split row groups that are likely to contain more than one row
     detections = improve_row_grouping(detections)
+
     return detections.sort_index()
