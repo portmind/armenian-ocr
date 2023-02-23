@@ -85,7 +85,7 @@ if __name__ == "__main__":
         for np_image in np_images
     ]
 
-    print(f"Whole process took {time.time() - start:.2f} seconds")
+    print(f"OCR process took {time.time() - start:.2f} seconds")
 
     with open(args.output_path, "w", encoding="utf-8") as fp:
         json.dump(obj=predictions, fp=fp, ensure_ascii=False)
