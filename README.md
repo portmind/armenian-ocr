@@ -8,7 +8,7 @@
 ## About
 
 armenian-ocr is a package that contains an **Armenian Document OCR solution** that also supports *Latin* and *Cyrillic* characters. The solution is designed to work with scanned documents. It supports documents with *different **layouts**, **densities** and **scan qualities***.
-This solution is currently used to OCR the documents of the [National Library of Armenia](https://nla.am/en/).
+A modified version of the solution is currently used in the process of digitalization of the documents of the [National Library of Armenia](https://nla.am/en/).
 The results are slightly better than the Google Cloud Vision OCR, and are shown in the table below.
 
 ## Test Dataset
@@ -20,10 +20,10 @@ In the table below you can see the *character level error rates* of both models 
 annotated dataset.
 
 
-|Method                   |1.png             |2.png|3.png|4.png|`mean`|
-|-------------------------|------------------|-----|-----|-----|------|
-|`ours`                   |7.5%              |0.8% |3.5% |4.4% |4%    |
-|`Google Cloud Vision OCR`|14%               |1.4% |4%   |2.5% |5.5%  |
+| Method                    |1.png             |2.png|3.png|4.png|`mean`|
+|---------------------------|------------------|-----|-----|-----|------|
+| `Ours`                    |7.5%              |0.8% |3.5% |4.4% |4%    |
+| `Google Cloud Vision OCR` |14%               |1.4% |4%   |2.5% |5.5%  |
 
 ## Solution
 
@@ -51,11 +51,13 @@ $ poetry install
 
 ```shell
 $ wget https://armenian-ocr-objects.s3.eu-west-3.amazonaws.com/objects.zip
-$ unzip objects.zip
+$ unzip objects.zip -d objects
 ```
 2. Run the provided `ocr.py` script.
-If you have an Nvidia GPU you can use the `--cuda` flag to utilize it.
-This code will save the output in a list format, where each element is a list of the form `[bounding_box, word]`.
+If you have an Nvidia GPU you can use the `--cuda` flag to utilize it. \
+If you want to also predict layout structure you should pass `--layout` flag. \
+This code will save the output in a list format, where each element is a list of the form `{"box": box, "text": text}`.\
+If `--layout` flag is passed the form will be `{"box": box, "text": text, "paragraph": paragraph_id, "row": row_id}`.
 
 ```shell
 $ poetry run python ocr.py \

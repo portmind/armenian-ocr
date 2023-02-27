@@ -6,13 +6,16 @@ authors = ["Portmind's Team"]
 maintainers = [
     "Khachatur Khechoyan <khachatur.khechoyan@portmind.com>",
     "Sevak Harutyunyan <sevak.harutyunyan@portmind.com>",
+    "Sipan Muradyan <sipan.muradyan@portmind.com>",
 ]
 
 [tool.poetry.dependencies]
 python = "^3.8"
 torch = "^1.13.1"
 numpy = "^1.24.1"
+pandas = "^1.5.3"
 scipy = "^1.9.3"
+pdf2image = "^1.16.2"
 torchvision = "^0.14.1"
 opencv-python = "^4.6.0"
 

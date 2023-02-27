@@ -12,6 +12,8 @@ from armenian_ocr.detection.model import craft_utils, image_utils
 from armenian_ocr.detection.model.craft import CRAFT
 from armenian_ocr.detection.model.craft_utils import copy_state_dict
 
+box_type = Tuple[int, int, int, int]
+
 
 class DetWrapper:
     def __init__(self):
@@ -27,8 +29,8 @@ class DetWrapper:
         model_file_name: str = "detection.pth",
         args_file_name: str = "args.json",
     ):
-        """
-        Loads model weights and args from specified paths to object
+        """Loads model weights and args from specified paths to object
+
         Args:
             path: Path to where model.pth and opt.txt are saved
             device: "cpu" or "cuda"
@@ -52,13 +54,12 @@ class DetWrapper:
 
         self.model.eval()
 
-        with open(os.path.join(path, args_file_name)) as json_file:
-            self.args = json.load(json_file)
+        with open(os.path.join(path, args_file_name)) as fp:
+            self.args = json.load(fp)
 
     @staticmethod
-    def postprocess_output(predictions: List) -> List:
-        """
-        Postprocess predictions. The process includes:
+    def postprocess_output(predictions: List[box_type]) -> List[box_type]:
+        """Postprocess predictions. The process includes:
         Find boxes with small heights and widths. If a box has both small height and width, it is considered very small,
         otherwise it is considered small. If a box is very small, then it most likely a punctuation and will be joined
         to a box to its left or bottom. If a box is small, then it will be joined to a box to its left or right. After
@@ -67,13 +68,14 @@ class DetWrapper:
         with minimal is chosen as parent box.
 
         Args:
-            predictions:
+            predictions: Predicted detection boxes
 
         Returns:
             Postprocessed output
         """
         if len(predictions) == 0:
             return predictions
+
         box_heights = np.array([box[3] - box[1] for box in predictions])
         box_heights_norm = box_heights[
             (box_heights >= np.percentile(box_heights, 10))
@@ -221,16 +223,10 @@ class DetWrapper:
     def predict(
         self,
         image: np.ndarray,
-        link_threshold: float = 0.3,
-        low_text: float = 0.4,
-        link_threshold2: float = 0.6,
-        low_text2: float = 0.6,
         return_heatmap: bool = False,
         postprocess: bool = True,
-    ) -> Union[List[Tuple], Tuple[List[Tuple], np.ndarray]]:
-
-        """
-        Inference on CRAFT model.
+    ) -> Union[List[box_type], Tuple[List[box_type], np.ndarray]]:
+        """Inference on CRAFT model.
         During the inference, the output maps of the model will be thresholded twice: soft and hard
         Soft is thresholded by link_threshold and low_text which may result in big boxes, but also may find small text.
         Hard is thresholded by link_threshold2 and low_text2. As thresh values are higher, boxes will become small
@@ -239,26 +235,19 @@ class DetWrapper:
         it is applicable. But also small boxes found by soft are kept.
 
         Args:
-            image: Image to inference (RGB)
-            link_threshold : Link confidence threshold, link maps will be thresholded by this value
-            low_text: Text confidence threshold, region maps will be thresholded by this value
-            link_threshold2: Link confidence threshold, link maps will be thresholded by this value
-            low_text2: Text confidence threshold, region maps will be thresholded by this value
-            return_heatmap : Whether to return heatmap of predicted maps
+            image: Input image (RGB)
+            return_heatmap: Whether to return heatmap of predicted maps
             postprocess: Postprocess boxes to join small boxes
+
         Returns:
             Predicted bounded boxes of text, heatmap of region and affinity maps
         """
         center = self.args.get("center", False)
         # resize to model's input size
         image = image[..., ::-1]  # RGB -> BGR
-        (
-            image_resized,
-            target_ratio,
-            size_heatmap,
-        ) = image_utils.resize_aspect_ratio(
+        image_resized, target_ratio = image_utils.resize_aspect_ratio(
             image=image,
-            square_size=self.args["canvas_size"],
+            square_size=self.args.get("canvas_size", 1280),
             interpolation=cv2.INTER_AREA,
             center=center,
         )
@@ -281,10 +270,10 @@ class DetWrapper:
         boxes = craft_utils.get_detection_boxes(
             text_map=score_text,
             link_map=score_link,
-            link_threshold=link_threshold,
-            low_text=low_text,
-            link_threshold2=link_threshold2,
-            low_text2=low_text2,
+            soft_link_threshold=self.args.get("soft_link_threshold", 0.4),
+            soft_text_threshold=self.args.get("soft_text_threshold", 0.3),
+            hard_link_threshold=self.args.get("hard_link_threshold", 0.6),
+            hard_text_threshold=self.args.get("hard_text_threshold", 0.6),
         )
 
         # coordinate adjustment to original image size
@@ -329,11 +318,12 @@ class DetWrapper:
         return boxes
 
     @staticmethod
-    def hull2box(hull: np.ndarray) -> Tuple:
-        """
-        Make a rectangle from hull
+    def hull2box(hull: np.ndarray) -> box_type:
+        """Make a rectangle from hull
+
         Args:
             hull: Predicted hull
+
         Returns:
             left, top, right, bottom coordinates of the hull
         """
@@ -344,9 +334,9 @@ class DetWrapper:
         return left, top, right, bottom
 
     @staticmethod
-    def draw_pred(image: np.ndarray, boxes: List) -> np.ndarray:
-        """
-        Draw predicted text boxes rectangles on image
+    def draw_pred(image: np.ndarray, boxes: List[box_type]) -> np.ndarray:
+        """Draw predicted text boxes rectangles on image
+
         Args:
             image: Image to draw boxes on
             boxes: Predicted boxes by self.predict
@@ -357,10 +347,10 @@ class DetWrapper:
         image = image.copy()
         for top, left, bottom, right in boxes:
             cv2.rectangle(
-                image,
-                (int(top), int(left)),
-                (int(bottom), int(right)),
-                (0, 255, 0),
-                2,
+                img=image,
+                pt1=(int(top), int(left)),
+                pt2=(int(bottom), int(right)),
+                color=(0, 255, 0),
+                thickness=2,
             )
         return image

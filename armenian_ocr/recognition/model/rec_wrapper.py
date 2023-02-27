@@ -1,5 +1,7 @@
 import os
+from typing import List
 
+import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
@@ -13,27 +15,26 @@ from armenian_ocr.recognition.model.utils import (
 
 
 class Opt(object):
-    """
-    Class for arguments required by recognition network
-    """
+    """Class for arguments required by recognition network"""
 
-    def __init__(self, path):
-        """
+    def __init__(self, path: str):
+        """Get and set arguments
+
         Args:
-            path (str): path to opt.txt saved with the model
+            path: path to opt.txt saved with the model
         """
         with open(path, "r", encoding="utf8") as fp:
             args = fp.readlines()
 
-        for arg_i in args:
-            if ":" in arg_i:
-                split_point = arg_i.index(":")
-                arg_name = arg_i[:split_point]
-                arg_value = arg_i[(split_point + 2) : -1]
+        for arg in args:
+            if ":" in arg:
+                split_point = arg.index(":")
+                arg_name = arg[:split_point]
+                arg_value = arg[(split_point + 2) : -1]
                 setattr(self, arg_name, arg_value)
 
         # convert boolean and integer attributes to correct format from string
-        bool_fields = ["sensitive", "PAD", "rgb"]
+        boolean_fields = ["sensitive", "PAD", "rgb"]
         int_fields = [
             "imgW",
             "imgH",
@@ -45,31 +46,34 @@ class Opt(object):
             "batch_size",
         ]
 
-        for i in bool_fields:
-            if hasattr(self, i):
+        for field in boolean_fields:
+            if hasattr(self, field):
                 setattr(
-                    self, i, (True if getattr(self, i) == "True" else False)
+                    self,
+                    field,
+                    (True if getattr(self, field) == "True" else False),
                 )
 
-        for i in int_fields:
-            if hasattr(self, i):
-                setattr(self, i, int(getattr(self, i)))
+        for field in int_fields:
+            if hasattr(self, field):
+                setattr(self, field, int(getattr(self, field)))
 
 
 class ImageDataset(Dataset):
-    def __init__(self, images):
-        """
+    def __init__(self, images: List[np.ndarray]):
+        """Initialize dataset
+
         Args:
-            images (list of numpy arrays):
+            images: Input images
         """
         self.images = [
-            Image.fromarray(i) for i in images
+            Image.fromarray(image) for image in images
         ]  # convert to PIL Image, suitable format for the network
 
     def __len__(self):
         return len(self.images)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: int):
         return self.images[item], None
 
 
@@ -86,17 +90,17 @@ class RecWrapper(object):
 
     def load(
         self,
-        path,
-        device="cpu",
-        model_file_name="best_accuracy.pth",
-        opt_file_name="opt.txt",
+        path: str,
+        device: str = "cpu",
+        model_file_name: str = "best_accuracy.pth",
+        opt_file_name: str = "opt.txt",
     ):
         """
         Args:
-            path (str): path to where model.pth and opt.txt are saved
-            device (str): cpu or cuda
-            model_file_name (str): file name of the pth file
-            opt_file_name (str): file name of the arguments file
+            path: path to where model.pth and opt.txt are saved
+            device: cpu or cuda
+            model_file_name: file name of the pth file
+            opt_file_name: file name of the arguments file
 
         Returns:
 
@@ -107,11 +111,11 @@ class RecWrapper(object):
         """ model configuration """
         if "CTC" in self.opt.Prediction:
             self.converter = CTCLabelConverter(
-                self.opt.character, device=self.opt.device
+                character=self.opt.character, device=self.opt.device
             )
         else:
             self.converter = AttnLabelConverter(
-                self.opt.character, device=self.opt.device
+                character=self.opt.character, device=self.opt.device
             )
         self.opt.num_class = len(self.converter.character)
 
@@ -120,7 +124,7 @@ class RecWrapper(object):
         self.model = Model(self.opt)
 
         t_load = torch.load(
-            os.path.join(path, model_file_name), map_location=self.device
+            f=os.path.join(path, model_file_name), map_location=self.device
         )
         self.model.load_state_dict(
             {k[k.find(".") + 1 :]: v for k, v in t_load.items()}
@@ -128,13 +132,14 @@ class RecWrapper(object):
         self.model.to(self.device)
         self.model.eval()
 
-    def predict(self, images):
-        """
+    def predict(self, images: List[np.ndarray]) -> List[str]:
+        """Predict
+
         Args:
-            images (list of numpy arrays): images to be read by recognition network
+            images: images to be read by recognition network
 
         Returns:
-            preds_list (list of str): list of read texts from the images_
+            Texts (Recognition network outputs)
         """
         image_data = ImageDataset(images)
         collate = AlignCollate(
@@ -143,7 +148,7 @@ class RecWrapper(object):
             keep_ratio_with_pad=self.opt.PAD,
         )
         image_loader = DataLoader(
-            image_data,
+            dataset=image_data,
             batch_size=self.opt.batch_size,
             shuffle=False,
             num_workers=int(self.opt.workers),
@@ -151,7 +156,7 @@ class RecWrapper(object):
             pin_memory=(self.opt.device != "cpu"),
         )
 
-        preds_list = []
+        predictions = []
 
         # predict
         self.model.eval()
@@ -163,49 +168,57 @@ class RecWrapper(object):
                 length_for_pred = torch.IntTensor(
                     [self.opt.batch_max_length] * batch_size
                 ).to(self.device)
-                text_for_pred = (
+                prediction_text = (
                     torch.LongTensor(batch_size, self.opt.batch_max_length + 1)
                     .fill_(0)
                     .to(self.device)
                 )
 
                 if "CTC" in self.opt.Prediction:
-                    preds = self.model(image, text_for_pred).log_softmax(2)
+                    prediction = self.model(
+                        input=image, text=prediction_text
+                    ).log_softmax(2)
 
-                    # Select max probabilty (greedy decoding) then decode index to character
-                    preds_size = torch.IntTensor([preds.size(1)] * batch_size)
-                    _, preds_index = preds.permute(1, 0, 2).max(2)
-                    preds_index = (
-                        preds_index.transpose(1, 0).contiguous().view(-1)
+                    # Select max probability (greedy decoding) then decode index to character
+                    prediction_size = torch.IntTensor(
+                        [prediction.size(1)] * batch_size
                     )
-                    preds_str = self.converter.decode(
-                        preds_index.data, preds_size.data
+                    _, prediction_indices = prediction.permute(1, 0, 2).max(2)
+                    prediction_indices = (
+                        prediction_indices.transpose(1, 0)
+                        .contiguous()
+                        .view(-1)
+                    )
+                    prediction_str = self.converter.decode(
+                        prediction_indices.data, prediction_size.data
                     )
                 else:
-                    preds = self.model(image, text_for_pred, is_train=False)
-
-                    # select max probabilty (greedy decoding) then decode index to character
-                    _, preds_index = preds.max(2)
-                    preds_str = self.converter.decode(
-                        preds_index, length_for_pred
+                    prediction = self.model(
+                        input=image, text=prediction_text, is_train=False
                     )
 
-                soft_prob = torch.nn.functional.softmax(preds, dim=2)
+                    # select max probability (greedy decoding) then decode index to character
+                    _, prediction_indices = prediction.max(2)
+                    prediction_str = self.converter.decode(
+                        prediction_indices, length_for_pred
+                    )
+
+                soft_prob = torch.nn.functional.softmax(prediction, dim=2)
                 soft_prob, index = soft_prob.max(2)
 
-                preds_i = []
-                for i, pred in enumerate(preds_str):
+                predicted_texts = []
+                for index, predicted_text in enumerate(prediction_str):
                     if "Attn" in self.opt.Prediction:
                         box_prob = torch.mean(
-                            soft_prob[i][: pred.find("[s]")]
+                            soft_prob[index][: predicted_text.find("[s]")]
                         ).item()
                         if box_prob < 0.7:
-                            pred = ""
+                            predicted_text = ""
                         else:
-                            pred = pred[
-                                : pred.find("[s]")
+                            predicted_text = predicted_text[
+                                : predicted_text.find("[s]")
                             ]  # prune after "end of sentence" token ([s])
-                    preds_i.append(pred)
-                preds_list += preds_i
+                    predicted_texts.append(predicted_text)
+                predictions += predicted_texts
 
-        return preds_list
+        return predictions

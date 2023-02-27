@@ -1,5 +1,6 @@
 import math
 from collections import OrderedDict, deque
+from typing import List, Tuple
 
 import cv2
 import numpy as np
@@ -8,9 +9,12 @@ from scipy.signal import find_peaks
 cv2.setNumThreads(0)
 
 
-def copy_state_dict(state_dict):
-    """
-    Copy the state_dict - the weights of each module
+box_type = Tuple[int, int, int, int]
+
+
+def copy_state_dict(state_dict: OrderedDict) -> OrderedDict:
+    """Copy the state_dict - the weights of each module
+
     Args:
         state_dict: Model state_dict
 
@@ -29,35 +33,40 @@ def copy_state_dict(state_dict):
 
 
 def find_cuts(
-    arr: np.ndarray, div_coef_max: float = 1.5, div_coef_min: float = 1.2
+    segmentation_map: np.ndarray,
+    div_coef_max: float = 1.5,
+    div_coef_min: float = 1.2,
 ) -> np.ndarray:
-    hist = np.sum(arr, axis=1).astype(int)
-    mask = np.zeros_like(hist)
-    maxes = find_peaks(hist)[0]
-    mines = find_peaks(-hist)[0]
-    peaks = [0] + sorted(np.concatenate([mines, maxes])) + [len(hist) - 1]
-    if len(peaks) < 4:
-        return mask.astype("bool")
+    """Find horizontal cuts in segmentation map"""
+    non_zero_counts = np.sum(a=segmentation_map, axis=1).astype(int)
+    mask = np.zeros_like(non_zero_counts)
+    max_indices = find_peaks(non_zero_counts)[0]
+    min_indices = find_peaks(-non_zero_counts)[0]
+    peak_indices = (
+        [0]
+        + sorted(np.concatenate([min_indices, max_indices]))
+        + [len(non_zero_counts) - 1]
+    )
 
-    for i in range(1, len(peaks) - 1):
-        idx = peaks[i]
-        val_max = hist[idx] * div_coef_max
-        val_min = hist[idx] * div_coef_min
+    if len(peak_indices) >= 4:
+        for index in range(1, len(peak_indices) - 1):
+            peak_index = peak_indices[index]
+            val_max = non_zero_counts[peak_index] * div_coef_max
+            val_min = non_zero_counts[peak_index] * div_coef_min
 
-        if (val_max < hist[peaks[i - 1]] + 2) | (
-            val_max < hist[peaks[i + 1]] + 2
-        ):
-            if (val_min < hist[peaks[i - 1]] + 2) & (
-                val_min < hist[peaks[i + 1]] + 2
+            if (val_max < non_zero_counts[peak_indices[index - 1]] + 2) | (
+                val_max < non_zero_counts[peak_indices[index + 1]] + 2
+            ) and (val_min < non_zero_counts[peak_indices[index - 1]] + 2) & (
+                val_min < non_zero_counts[peak_indices[index + 1]] + 2
             ):
-                mask[idx] = 1
+                mask[peak_index] = 1
 
     return mask.astype("bool")
 
 
 def get_breakpoints(zero_counts: np.ndarray, height_thresh: int = 3) -> list:
-    """
-    Get peaks of zero counts and return them as breakpoints
+    """Get peaks of zero counts and return them as breakpoints
+
     Args:
         zero_counts: Counts of zeros
         height_thresh: Difference threshold
@@ -68,99 +77,40 @@ def get_breakpoints(zero_counts: np.ndarray, height_thresh: int = 3) -> list:
     peaks, _ = find_peaks(zero_counts)
     neg_zero_count = -zero_counts
     peaks_neg, _ = find_peaks(neg_zero_count)
-    real_peaks = []
+    peak_indices = []
     if len(peaks) > 0:
         if len(peaks_neg) == 0:
-            real_peaks = list(peaks)
+            peak_indices = list(peaks)
         else:
             if len(peaks) + 1 != len(peaks_neg):
                 peaks_neg = np.concatenate((peaks_neg, peaks_neg[-1:]))
-            for i in range(len(peaks)):
+            for index in range(len(peaks)):
                 if (
-                    zero_counts[peaks][i]
-                    > zero_counts[peaks_neg][i] + height_thresh
+                    zero_counts[peaks][index]
+                    > zero_counts[peaks_neg][index] + height_thresh
                 ):
-                    real_peaks.append(peaks[i])
+                    peak_indices.append(peaks[index])
 
-    return real_peaks
-
-
-def get_labels(text_scores: np.ndarray, offset: int = 1) -> tuple:
-    """
-    Run connected component analysis with additional pre-processing
-    Args:
-        text_scores: Predicted text scores
-        offset: Offset for boundaries
-
-    Returns:
-        Number of labels, labels, stats, centroids
-    """
-    n_labels, labels, _, _ = cv2.connectedComponentsWithStats(
-        text_scores, connectivity=4
-    )
-    # refinement
-    text_scores_refined = text_scores.copy()
-    for i in range(1, n_labels + 1):
-        label_image = np.where(labels == i, 255, 0)
-
-        x_where = np.where((label_image != 0).sum(axis=0) > 0)[0]
-        y_where = np.where((label_image != 0).sum(axis=1) > 0)[0]
-
-        if (len(x_where) > 1) and (len(y_where) > 1):
-            label_bounded = label_image[
-                y_where.min() : y_where.max(), x_where.min() : x_where.max()
-            ]
-        else:
-            continue
-
-        zero_counts = (label_bounded == 0).sum(axis=1)
-
-        if len(zero_counts) < 5:
-            continue
-
-        to_be_zeroed = get_breakpoints(zero_counts)
-
-        x, y = np.where(label_bounded > 0)
-        for x_, y_ in zip(x, y):
-            if x_ in to_be_zeroed:
-                if (abs(label_bounded.shape[0] - x_) <= offset) or (
-                    x_ <= offset
-                ):
-                    # discard on boundaries
-                    continue
-                if (
-                    label_bounded[
-                        max(x_ - offset, 0) : x_ + offset + 1, y_
-                    ].mean()
-                    < 255
-                ):
-                    # check if it has values both upper and below
-                    continue
-                text_scores_refined[y_where.min() + x_, x_where.min() + y_] = 0
-    return cv2.connectedComponentsWithStats(
-        text_scores_refined, connectivity=4
-    )
+    return peak_indices
 
 
 def get_detection_boxes(
     text_map: np.ndarray,
     link_map: np.ndarray,
-    link_threshold: float = 0.4,
-    low_text: float = 0.3,
-    link_threshold2: float = 0.6,
-    low_text2: float = 0.6,
-    improve_steps: int = 0,
-) -> list:
-    """
-    Create text boxes from predicted text_map and link_map
+    soft_link_threshold: float = 0.4,
+    soft_text_threshold: float = 0.3,
+    hard_link_threshold: float = 0.6,
+    hard_text_threshold: float = 0.6,
+) -> List[box_type]:
+    """Create text boxes from predicted text_map and link_map
+
     Args:
         text_map: Text map from CRAFT prediction
         link_map: Link map from CRAFT prediction
-        link_threshold: Soft threshold for links
-        low_text: Soft threshold for text
-        low_text2: Hard threshold for text
-        link_threshold2: Hard threshold for links
-        improve_steps: How many of the new changes apply (temporary should be removed)
+        soft_link_threshold: Soft threshold for links
+        soft_text_threshold: Soft threshold for text
+        hard_text_threshold: Hard threshold for text
+        hard_link_threshold: Hard threshold for links
 
     Returns:
         object:
@@ -174,35 +124,37 @@ def get_detection_boxes(
     image_height, image_width = text_map.shape
 
     # threshold by soft thresholds
-    _, text_score = cv2.threshold(text_map, low_text, 1, 0)
-    _, link_score = cv2.threshold(link_map, link_threshold, 1, 0)
+    _, text_score = cv2.threshold(
+        src=text_map, thresh=soft_text_threshold, maxval=1, type=0
+    )
+    _, link_score = cv2.threshold(
+        src=link_map, thresh=soft_link_threshold, maxval=1, type=0
+    )
 
     # add the maps and run connected components
-    text_score_combined = np.clip(text_score + link_score, 0, 1).astype(
-        np.uint8
+    text_score_combined = np.clip(
+        a=text_score + link_score, a_min=0, a_max=1
+    ).astype(np.uint8)
+    n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+        image=text_score_combined, connectivity=4
     )
-    if improve_steps > 0:
-        n_labels, labels, stats, _ = get_labels(text_score_combined)
-    else:
-        n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
-            text_score_combined, connectivity=4
-        )
     labels = labels.astype(np.uint64)
 
     # threshold by hard thresholds
-    _, text_score_hard = cv2.threshold(text_map, low_text2, 1, 0)
-    _, link_score_hard = cv2.threshold(link_map, link_threshold2, 1, 0)
+    _, text_score_hard = cv2.threshold(
+        src=text_map, thresh=hard_text_threshold, maxval=1, type=0
+    )
+    _, link_score_hard = cv2.threshold(
+        src=link_map, thresh=hard_link_threshold, maxval=1, type=0
+    )
 
     # add the maps and run connected components
     text_score_hard_combined = np.clip(
-        text_score_hard + link_score_hard, 0, 1
+        a=text_score_hard + link_score_hard, a_min=0, a_max=1
     ).astype(np.uint8)
-    if improve_steps > 0:
-        _, labels_hard, stats_hard, _ = get_labels(text_score_hard_combined)
-    else:
-        _, labels_hard, stats_hard, _ = cv2.connectedComponentsWithStats(
-            text_score_hard_combined, connectivity=4
-        )
+    _, labels_hard, stats_hard, _ = cv2.connectedComponentsWithStats(
+        image=text_score_hard_combined, connectivity=4
+    )
 
     numer = np.arange(0, len(stats_hard)).reshape((len(stats_hard), 1))
     stats_hard = np.concatenate((stats_hard, numer), axis=1)
@@ -224,8 +176,8 @@ def get_detection_boxes(
         if size < 2:
             continue
 
-        if (size > 30) and (label_id < n_labels) and (improve_steps >= 0):
-            segmentation_map = np.zeros(text_map.shape, dtype=np.uint8)
+        if (size > 30) and (label_id < n_labels):
+            segmentation_map = np.zeros(shape=text_map.shape, dtype=np.uint8)
             segmentation_map[(labels == label_id) & (text_score == 1)] = 1
             cuts = find_cuts(segmentation_map[y : y + height, x : x + width])
             segmentation_map[y : y + height, x : x + width][cuts] = 0
@@ -235,7 +187,8 @@ def get_detection_boxes(
                 sub_stats,
                 _,
             ) = cv2.connectedComponentsWithStats(
-                segmentation_map[y : y + height, x : x + width], connectivity=4
+                image=segmentation_map[y : y + height, x : x + width],
+                connectivity=4,
             )
             if n_labels_current > 2:
                 sub_stats[:, 0] += x
@@ -304,20 +257,21 @@ def get_detection_boxes(
             y_bottom = image_height
 
         kernel = cv2.getStructuringElement(
-            cv2.MORPH_RECT, (1 + num_iter, 1 + num_iter + num_iter_offset)
+            shape=cv2.MORPH_RECT,
+            ksize=(1 + num_iter, 1 + num_iter + num_iter_offset),
         )
         segmentation_map[y_top:y_bottom, x_left:x_right] = cv2.dilate(
-            segmentation_map[y_top:y_bottom, x_left:x_right], kernel
+            src=segmentation_map[y_top:y_bottom, x_left:x_right], kernel=kernel
         )
 
         # make box
         np_contours = (
-            np.roll(np.array(np.where(segmentation_map != 0)), 1, axis=0)
+            np.roll(
+                a=np.array(np.where(segmentation_map != 0)), shift=1, axis=0
+            )
             .transpose()
             .reshape(-1, 2)
         )
-        # rectangle = cv2.minAreaRect(np_contours)
-        # box = cv2.boxPoints(rectangle)
 
         # align diamond-shape
         try:
@@ -327,14 +281,8 @@ def get_detection_boxes(
                 [[left, top], [right, top], [right, bottom], [left, bottom]],
                 dtype=np.float32,
             )
-        except BaseException:
-            print("dumped", label_id)
-            # print(Counter(labels.flatten()))
-            print("__", (labels == label_id).sum())
-            print("sum0", (segmentation_map != 0).sum())
-            print("sum", np.array(np.where(segmentation_map != 0)).sum())
-            print("stats", old_stats)
-            print("s", x_left, y_top, x_right, y_bottom)
+        except BaseException as e:
+            print(f"Exception {e} with {label_id=}")
             continue
 
         # make clock-wise order
@@ -343,16 +291,15 @@ def get_detection_boxes(
         detections.append(box.tolist())
         mapper.append(label_id)
 
-    return detections  # , labels, mapper
+    return detections
 
 
 def adjust_result_coordinates(
     polygons: list, ratio_width: float, ratio_height: float, ratio_net: int = 2
 ) -> np.ndarray:
-    """
-    During inference, original image size is changed by (ratio_w, ratio_h) times.
+    """During inference, original image size is changed by (ratio_width, ratio_height) times.
     As predicted boxes are for changed image, this method will map the model's predicted boxes to
-    original image  scale
+    original image scale
 
     Args:
         polygons: Polygons to adjust
@@ -375,9 +322,11 @@ def adjust_result_coordinates(
     return polygons
 
 
-def remove_padding(box: tuple, upper_padding: int, left_padding: int) -> tuple:
-    """
-    Remove padding created by centered padding
+def remove_padding(
+    box: box_type, upper_padding: int, left_padding: int
+) -> box_type:
+    """Remove padding created by centered padding
+
     Args:
         box: Predicted box
         upper_padding: Padding from above
