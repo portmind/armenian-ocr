@@ -25,12 +25,12 @@ def moving_average(values: np.ndarray, window_size: int) -> np.ndarray:
 
 
 def get_horizontal_breakpoints(
-    image_1d: np.ndarray, window_size: int = 10
+    word_box_heatmap: np.ndarray, window_size: int = 10
 ) -> List[int]:
     """Find horizontal breakpoints using detected boxes.
 
     Args:
-        image_1d: Image with colored detection boxes
+        word_box_heatmap: Image with colored detection boxes
         window_size: Moving average window size (used for smoothing the amounts of pixels covered by each horizontal
             line)
 
@@ -38,7 +38,9 @@ def get_horizontal_breakpoints(
         Horizontal breakpoints
     """
     horizontal_whites = np.where(
-        moving_average((image_1d != 255).sum(axis=1), window_size).astype(int)
+        moving_average(
+            (word_box_heatmap != 255).sum(axis=1), window_size
+        ).astype(int)
         == 0
     )[0]
     y_breakpoints, window = [], []
@@ -60,12 +62,12 @@ def get_horizontal_breakpoints(
 
 
 def get_vertical_breakpoints(
-    image_1d: np.ndarray, divisor: int = 4, window_size: int = 100
+    word_box_heatmap: np.ndarray, divisor: int = 4, window_size: int = 100
 ) -> np.ndarray:
     """Find vertical breakpoints using detected boxes
 
     Args:
-        image_1d: Image with colored detection boxes
+        word_box_heatmap: Image with colored detection boxes
         divisor: What fraction change compared to image height should be considered as breakpoint
             (for example, if divisor is 4 if a prominence of image height / 4 occurs a break line will be added)
         window_size: Moving average window size (used for smoothing the amounts of pixels covered by each vertical
@@ -74,12 +76,12 @@ def get_vertical_breakpoints(
     Returns:
         Vertical breakpoints
     """
-    values = (image_1d != 255).sum(axis=0)
+    values = (word_box_heatmap != 255).sum(axis=0)
     moving_averages = moving_average(
         values=values, window_size=window_size
     )  # to make smoother
     breakpoints = find_peaks(
-        -moving_averages, prominence=image_1d.shape[0] // divisor
+        -moving_averages, prominence=word_box_heatmap.shape[0] // divisor
     )[0]
     return breakpoints
 
@@ -287,12 +289,12 @@ def detect_layout(
     Returns:
         Detections dataframe with two new columns: "paragraph_id" and "row_id"
     """
-    detected_boxes = np.full(
+    word_box_heatmap = np.full(
         shape=image_shape[:2], fill_value=255, dtype=np.uint8
     )  # Create an empty image for
     # putting predicted detection boxes atop. The image will be used for layout detection.
     for x1, y1, x2, y2 in detections[["x1", "y1", "x2", "y2"]].values:
-        detected_boxes[
+        word_box_heatmap[
             y1:y2, x1:x2
         ] = 0  # fill all the pixels of detected boxes with 0s
 
@@ -308,7 +310,8 @@ def detect_layout(
     horizontal_breakpoints = (
         [0]
         + get_horizontal_breakpoints(
-            image_1d=detected_boxes, window_size=int(height_median / 2)
+            word_box_heatmap=word_box_heatmap,
+            window_size=int(height_median / 2),
         )
         + [image_shape[0]]
     )
@@ -330,7 +333,7 @@ def detect_layout(
                 [0]
                 + list(
                     get_vertical_breakpoints(
-                        image_1d=detected_boxes[y_min:y_max],
+                        word_box_heatmap=word_box_heatmap[y_min:y_max],
                         divisor=divisor,
                         window_size=window_size,
                     )
